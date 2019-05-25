@@ -26,8 +26,84 @@ server.listen(5000, function () {
 var players = {};
 var bullets = {};
 var enemies = {};
+var spawner;
+var enemySpawner = 1000;
 var i = 0;
 var k = 0;
+
+// Game will increase enemies spawn each x seconds
+function speedUpGame() {
+  setInterval(function () {
+    clearInterval(spawner);
+    enemySpawner += 1000;
+    spawner = setInterval(generateEnemy, enemySpawner);
+  }, 10000)
+}
+
+// Create enemies object
+function generateEnemy() {
+  var object = {};
+  // Choose spawn border
+  var axis = false; // x = false / y = true
+  var value = false; // 0 = false / maxValue = true
+  if (Math.random() > 0.5) {
+    axis = true;
+  }
+  if (Math.random() > 0.5) {
+    value = true;
+  }
+  if (axis && value) {
+    object = {
+      x: Math.random() * 800,
+      y: 600,
+      velX: 0,
+      velY: 0
+    }
+  }
+  if (axis && !value) {
+    object = {
+      x: Math.random() * 800,
+      y: 0,
+      velX: 0,
+      velY: 0
+    }
+  }
+  if (!axis && value) {
+    object = {
+      x: 800,
+      y: Math.random() * 600,
+      velX: 0,
+      velY: 0
+    }
+  }
+  if (!axis && !value) {
+    object = {
+      x: 0,
+      y: Math.random() * 600,
+      velX: 0,
+      velY: 0
+    }
+  }
+  // Add normilized vector
+  var v1 = {
+    x: object.x - 400,
+    y: object.y - 300
+  }
+
+  var len = Math.sqrt(v1.x ** 2 + v1.y ** 2);
+
+  vNorm = {
+    x: v1.x / len,
+    y: v1.y / len
+  }
+
+  object.velX = vNorm.x * 5;
+  object.velY = vNorm.y * 5;
+
+  // Add enemies
+  enemies[k] = object;
+  k++;
+}
 
 // WebSocket handlers
 io.on('connection', function (socket) {
@@ -83,69 +159,8 @@ io.on('connection', function (socket) {
     i++;
   });
   socket.on('start', function () {
-    setInterval(function () {
-      var object = {};
-      // Choose spawn border
-      var axis = false; // x = false / y = true
-      var value = false; // 0 = false / maxValue = true
-      if (Math.random() > 0.5) {
-        axis = true;
-      }
-      if (Math.random() > 0.5) {
-        value = true;
-      }
-      if (axis && value) {
-        object = {
-          x: Math.random() * 800,
-          y: 600,
-          velX: 0,
-          velY: 0
-        }
-      }
-      if (axis && !value) {
-        object = {
-          x: Math.random() * 800,
-          y: 0,
-          velX: 0,
-          velY: 0
-        }
-      }
-      if (!axis && value) {
-        object = {
-          x: 800,
-          y: Math.random() * 600,
-          velX: 0,
-          velY: 0
-        }
-      }
-      if (!axis && !value) {
-        object = {
-          x: 0,
-          y: Math.random() * 600,
-          velX: 0,
-          velY: 0
-        }
-      }
-      // Add normilized vector
-      var v1 = {
-        x: Math.abs(object.x - 400),
-        y: Math.abs(object.y - 300)
-      }
-
-      var len = Math.sqrt(v1.x ** 2 + v1.y ** 2);
-
-      vNorm = {
-        x: v1.x / len,
-        y: v1.y / len
-      }
-
-      object.velX = vNorm.x;
-      object.velY = vNorm.y;
-      
-      // Add enemies
-      enemies[k] = object;
-      k++;
-    }, 2000);
+    speedUpGame();
+    spawner = setInterval(generateEnemy, enemySpawner);
   });
   socket.on('disconnect', function () {
     delete players[socket.id];
@@ -153,7 +168,7 @@ io.on('connection', function (socket) {
 });
 
 setInterval(function () {
-  // Moving bullets
+  // Move bullets
   for (var id in bullets) {
     var bullet = bullets[id];
     if (bullet.state.pageX < 0 || bullet.state.pageX > 800 || bullet.state.pageY < 0 || bullet.state.pageY > 600) {
@@ -163,7 +178,18 @@ setInterval(function () {
       bullet.state.pageY -= bullet.velY;
     }
   }
-  // TODO: Check hitted enemies
+  // Move enemies
+  for (var id in enemies) {
+    var enemy = enemies[id];
+    if (enemy.x > 399 && enemy.x < 401 && enemy.y > 299 && enemy.y < 301) {
+      delete enemies[id];
+    }
+    else {
+      enemy.x -= enemy.velX;
+      enemy.y -= enemy.velY;
+    }
+  }
+  // Check hitted enemies
   for (var e in enemies) {
     var enemy = enemies[e];
     for (var id in bullets) {
@@ -175,7 +201,7 @@ setInterval(function () {
       }
     }
   }
-  // TODO: Check hitted players
+  // Check hitted players
   for (var e in enemies) {
     var enemy = enemies[e];
     for (var e in players) {
