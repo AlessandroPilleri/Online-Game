@@ -34,10 +34,19 @@ var k = 0;
 // Game will increase enemies spawn each x seconds
 function speedUpGame() {
   setInterval(function () {
-    clearInterval(spawner);
-    enemySpawner += 1000;
-    spawner = setInterval(generateEnemy, enemySpawner);
-  }, 10000)
+    if (enemySpawner != 0) {
+      clearInterval(spawner);
+      console.log('Speed up game')
+      if (enemySpawner > 100) {
+        enemySpawner -= 100;
+      }
+      else {
+        enemySpawner -= 10;
+      }
+      console.log('Speed: ' + enemySpawner)
+      spawner = setInterval(generateEnemy, enemySpawner);
+    }
+  }, 5000)
 }
 
 // Create enemies object
@@ -131,36 +140,58 @@ io.on('connection', function (socket) {
   });
   socket.on('shot', function (data) {
     console.log(socket.id)
-    // Normilize velocity of bullets
-    var v1 = {
-      x: players[socket.id].x - data.pageX,
-      y: players[socket.id].y - data.pageY
-    }
+    if (players[socket.id]) {
+      // Normilize velocity of bullets
+      var v1 = {
+        x: players[socket.id].x - data.pageX,
+        y: players[socket.id].y - data.pageY
+      }
 
-    var len = Math.sqrt(v1.x ** 2 + v1.y ** 2);
+      var len = Math.sqrt(v1.x ** 2 + v1.y ** 2);
 
-    vNorm = {
-      x: v1.x / len,
-      y: v1.y / len
-    }
+      vNorm = {
+        x: v1.x / len,
+        y: v1.y / len
+      }
 
-    // Create bullet object
-    bullets[i] = {
-      player: players[socket.id],
-      end: data,
-      state: {
-        pageX: players[socket.id].x,
-        pageY: players[socket.id].y
-      },
-      velX: vNorm.x * 20,
-      velY: vNorm.y * 20
+      // Create bullet object
+      bullets[i] = {
+        player: players[socket.id],
+        end: data,
+        state: {
+          pageX: players[socket.id].x,
+          pageY: players[socket.id].y
+        },
+        velX: vNorm.x * 20,
+        velY: vNorm.y * 20
+      }
+      console.log(bullets[i])
+      i++;
     }
-    console.log(bullets[i])
-    i++;
   });
   socket.on('start', function () {
-    speedUpGame();
+    var playerExist = false;
+    for (var x in players) {
+      var player = players[x];
+      if (x == socket.id) {
+        playerExist = true;
+      }
+    }
+    if (!playerExist) {
+      socket.emit('readd player');
+    }
+    bullets = {};
+    enemies = {};
+    if (spawner) {
+      clearInterval(spawner);
+    }
+    enemySpawner = 1000;
+    i = 0;
+    k = 0;
+    console.log('Game started')
+    console.log('Speed: ' + enemySpawner)
     spawner = setInterval(generateEnemy, enemySpawner);
+    speedUpGame();
   });
   socket.on('disconnect', function () {
     delete players[socket.id];
@@ -194,8 +225,9 @@ setInterval(function () {
     var enemy = enemies[e];
     for (var id in bullets) {
       var bullet = bullets[id];
-      if (enemy.x >= bullet.state.pageX - 15 && enemy.x <= bullet.state.pageX + 15) {
-        if (enemy.y >= bullet.state.pageY - 15 && enemy.y <= bullet.state.pageY + 15) {
+      if (enemy.x >= bullet.state.pageX - 30 && enemy.x <= bullet.state.pageX + 30) {
+        if (enemy.y >= bullet.state.pageY - 30 && enemy.y <= bullet.state.pageY + 30) {
+          console.log('enemies at center')
           delete enemies[e];
         }
       }
@@ -209,6 +241,12 @@ setInterval(function () {
       if (enemy.x >= player.x - 18 && enemy.x <= player.x + 18) {
         if (enemy.y >= player.y - 18 && enemy.y <= player.y + 18) {
           delete players[e]
+          console.log(players)
+          console.log(Object.keys(players).length)
+          if (Object.keys(players).length === 0) {
+            console.log('Game ended')
+            io.sockets.emit('end');
+          }
         }
       }
     }

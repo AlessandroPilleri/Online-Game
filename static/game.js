@@ -42,7 +42,7 @@ document.addEventListener('keyup', function (event) {
 });
 
 socket.emit('new player');
-setInterval(function () {
+var moves = setInterval(function () {
   socket.emit('movement', movement);
 }, 1000 / 60);
 
@@ -100,3 +100,15 @@ document.getElementById('start').addEventListener('click', function () {
   socket.emit('start');
   document.getElementById('start').disabled = true;
 })
+
+socket.on('readd player', function () {
+  socket.emit('new player');
+  clearInterval(moves)
+  moves = setInterval(function () {
+    socket.emit('movement', movement);
+  }, 1000 / 60);
+})
+
+socket.on('end', function () {
+  document.getElementById('start').disabled = false;
+});
